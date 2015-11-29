@@ -58,29 +58,30 @@ def get_ec2_instances(region):
     
     for vol in ec2_conn.get_all_volumes():
         print region+':',vol.id
-        tags_volume = get_resource_tags(vol.id,ec2_conn)
-        description = 'snapshot' 
-        try:
-            current_snap = vol.create_snapshot(description)
-            set_resource_tags(current_snap, tags_volume)
-            suc_message = 'Snapshot created with description: %s and tags: %s' % (description, str(tags_volume))
-            print '     ' + suc_message
-        except Exception, e:
-            print "Unexpected error:", sys.exc_info()[0]
-            pass
+ #       tags_volume = get_resource_tags(vol.id,ec2_conn)
+ #       description = 'snapshot' 
+ #       try:
+ #           current_snap = vol.create_snapshot(description)
+ #           set_resource_tags(current_snap, tags_volume)
+ #           suc_message = 'Snapshot created with description: %s and tags: %s' % (description, str(tags_volume))
+ #           print '     ' + suc_message
+ #       except Exception, e:
+ #           print "Unexpected error:", sys.exc_info()[0]
+ #           pass
           
 regions = ['us-east-1','us-west-1','us-west-2','eu-west-1','sa-east-1',
                 'ap-southeast-1','ap-southeast-2','ap-northeast-1']
-'''
-    parser = argparse.ArgumentParser()
-    parser.add_argument('access_key', help='Access Key');
-    parser.add_argument('secret_key', help='Secret Key');
-    args = parser.parse_args()
-    global access_key
-    global secret_key
-    access_key = args.access_key
-    secret_key = args.secret_key
 
-for region in regions: get_ec2_instances('us-west-2')
-'''
-get_ec2_instances('us-west-2')
+parser = argparse.ArgumentParser()
+#    parser.add_argument('access_key', help='Access Key');
+#    parser.add_argument('secret_key', help='Secret Key');
+parser.add_argument('--region',help='Enter region');
+args = parser.parse_args()
+#    global access_key
+#    global secret_key
+global region
+#    access_key = args.access_key
+#    secret_key = args.secret_key
+region = args.region
+#for region in regions: get_ec2_instances('us-west-2')
+get_ec2_instances(region)
