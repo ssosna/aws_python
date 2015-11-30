@@ -40,6 +40,7 @@ def get_resource_tags(resource_id,ec2_conn):
   return resource_tags
 
 def get_ec2_instances(region):
+    i=0
     tags=': Tags'+ansi_color.yellow+' =>'+ansi_color.reset
     ec2_conn = boto.ec2.connect_to_region(region,
                 aws_access_key_id=aws_access_key,
@@ -53,8 +54,8 @@ def get_ec2_instances(region):
             stat=ansi_color.yellow+' => '+inst.state+ansi_color.reset
         else:
             stat=ansi_color.red+' => '+inst.state+ansi_color.reset
-          
-        print ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
+        i+=1  
+        print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
     
     for vol in ec2_conn.get_all_volumes():
         print region+':',vol.id
@@ -76,6 +77,7 @@ parser = argparse.ArgumentParser()
 #    parser.add_argument('access_key', help='Access Key');
 #    parser.add_argument('secret_key', help='Secret Key');
 parser.add_argument('--region',help='Enter region');
+parser.add_argument('action',help='show/create/remove/sart/stop');
 args = parser.parse_args()
 #    global access_key
 #    global secret_key
@@ -84,4 +86,6 @@ global region
 #    secret_key = args.secret_key
 region = args.region
 #for region in regions: get_ec2_instances('us-west-2')
-get_ec2_instances(region)
+if args.action == 'show':
+  print "Show all instances in region: %s" % (region)
+  get_ec2_instances(region)
