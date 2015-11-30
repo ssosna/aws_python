@@ -10,8 +10,6 @@ import sys
 resource_tags ={}
 aws_access_key = config['aws_access_key']
 aws_secret_key = config['aws_secret_key']
-#access_key = 'AKIAJEJH5QUXQY4NMYZA'
-#secret_key = '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'
 
 class ansi_color:
   red    = '\033[31m'
