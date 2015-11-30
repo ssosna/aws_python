@@ -8,6 +8,7 @@ from datetime import datetime
 import time
 import sys
 resource_tags ={}
+inst_id = ''
 aws_access_key = config['aws_access_key']
 aws_secret_key = config['aws_secret_key']
 
@@ -27,6 +28,7 @@ def set_resource_tags(resource, tags):
        'tag_value': tag_value
         }
       resource.add_tag(tag_key, tag_value)    
+
 def get_resource_tags(resource_id,ec2_conn):
   resource_tags ={}
   if resource_id:
@@ -37,24 +39,46 @@ def get_resource_tags(resource_id,ec2_conn):
         resource_tags[tag.name] = tag.value
   return resource_tags
 
-def get_ec2_instances(region):
+def get_ec2_instances(region,operation,inst_id):
     i=0
     tags=': Tags'+ansi_color.yellow+' =>'+ansi_color.reset
     ec2_conn = boto.ec2.connect_to_region(region,
                 aws_access_key_id=aws_access_key,
                 aws_secret_access_key=aws_secret_key)
-
-    for inst in ec2_conn.get_only_instances():
-        for k,v in inst.tags.items():
-            tags+=' '+k+': '+v       
-        
-        if inst.state == 'running':
-            stat=ansi_color.yellow+' => '+inst.state+ansi_color.reset
-        else:
-            stat=ansi_color.red+' => '+inst.state+ansi_color.reset
-        i+=1  
-        print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
     
+    if operation == 'show':
+      instance_list = ec2_conn.get_only_instances()
+      for inst in instance_list:
+          for k,v in inst.tags.items():
+              tags+=' '+k+': '+v       
+          if inst.state == 'running':
+              stat=ansi_color.yellow+' => '+inst.state+ansi_color.reset
+          else:
+              stat=ansi_color.red+' => '+inst.state+ansi_color.reset
+          i+=1  
+          print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
+    if operation == 'run':
+      instance = ec2_conn.get_only_instances(instance_ids=inst_id)
+      print 'Starting instance id= %s ' % inst_id
+      instance[0].start()
+    if operation == 'stop':
+      instance = ec2_conn.get_only_instances(instance_ids=inst_id)
+      print 'Stop instance id= %s ' % inst_id
+      instance[0].stop()
+    if operation == 'tag-search':
+      test={"tag:AppVer":"1.2.2.2.5","tag:Name":"LAMP"}
+      instance_list = ec2_conn.get_only_instances(filters=test)
+      print 'Found instance with tag=  '
+      for inst in instance_list:
+          for k,v in inst.tags.items():
+              tags+=' '+k+': '+v       
+          if inst.state == 'running':
+              stat=ansi_color.yellow+' => '+inst.state+ansi_color.reset
+          else:
+              stat=ansi_color.red+' => '+inst.state+ansi_color.reset
+          i+=1  
+          print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
+          
     for vol in ec2_conn.get_all_volumes():
         print region+':',vol.id
  #       tags_volume = get_resource_tags(vol.id,ec2_conn)
@@ -75,6 +99,8 @@ parser = argparse.ArgumentParser()
 #    parser.add_argument('access_key', help='Access Key');
 #    parser.add_argument('secret_key', help='Secret Key');
 parser.add_argument('--region',help='Enter region');
+parser.add_argument('--inst_id',help='Enter region');
+parser.add_argument('--tags',nargs='+',help='Enter region');
 parser.add_argument('action',help='show/create/remove/sart/stop');
 args = parser.parse_args()
 #    global access_key
@@ -84,6 +110,13 @@ global region
 #    secret_key = args.secret_key
 region = args.region
 #for region in regions: get_ec2_instances('us-west-2')
-if args.action == 'show':
-  print "Show all instances in region: %s" % (region)
-  get_ec2_instances(region)
+#if args.action == 'show':
+#  print "Show all instances in region: %s" % (region)
+#get_ec2_instances(region,args.action,inst_id)
+print args
+print args.tags[0]
+print map(lambda x: 'tags:'+x, args.tags)
+b={}
+for i in range(0, len(args.tags), 2):
+        b[args.tags[i]] = args.tags[i+1]
+print b
