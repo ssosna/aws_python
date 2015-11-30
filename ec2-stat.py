@@ -3,12 +3,13 @@
 #import pprint
 import argparse
 import boto.ec2
+import boto.ec2.elb
 from config import config
 from datetime import datetime
 import time
 import sys
 resource_tags ={}
-inst_id = ''
+#inst_id = ''
 aws_access_key = config['aws_access_key']
 aws_secret_key = config['aws_secret_key']
 
@@ -39,7 +40,7 @@ def get_resource_tags(resource_id,ec2_conn):
         resource_tags[tag.name] = tag.value
   return resource_tags
 
-def get_ec2_instances(region,operation,inst_id):
+def get_ec2_instances(region,operation,inst_id,arg_tags):
     i=0
     tags=': Tags'+ansi_color.yellow+' =>'+ansi_color.reset
     ec2_conn = boto.ec2.connect_to_region(region,
@@ -57,18 +58,25 @@ def get_ec2_instances(region,operation,inst_id):
               stat=ansi_color.red+' => '+inst.state+ansi_color.reset
           i+=1  
           print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
+
     if operation == 'run':
       instance = ec2_conn.get_only_instances(instance_ids=inst_id)
       print 'Starting instance id= %s ' % inst_id
       instance[0].start()
+
     if operation == 'stop':
       instance = ec2_conn.get_only_instances(instance_ids=inst_id)
       print 'Stop instance id= %s ' % inst_id
       instance[0].stop()
+
     if operation == 'tag-search':
-      test={"tag:AppVer":"1.2.2.2.5","tag:Name":"LAMP"}
-      instance_list = ec2_conn.get_only_instances(filters=test)
-      print 'Found instance with tag=  '
+      #filter_tags={"tag:AppVer":"1.2.2.2.5","tag:Name":"LAMP"}
+      filter_tags={}
+      for i in range(len(arg_tags)):
+        tmp=arg_tags[i].split('=')
+        filter_tags['tag:'+tmp[0]] = tmp[1]
+      instance_list = ec2_conn.get_only_instances(filters=filter_tags)
+      print 'Found instance with tag=', filter_tags
       for inst in instance_list:
           for k,v in inst.tags.items():
               tags+=' '+k+': '+v       
@@ -98,25 +106,18 @@ regions = ['us-east-1','us-west-1','us-west-2','eu-west-1','sa-east-1',
 parser = argparse.ArgumentParser()
 #    parser.add_argument('access_key', help='Access Key');
 #    parser.add_argument('secret_key', help='Secret Key');
-parser.add_argument('--region',help='Enter region');
-parser.add_argument('--inst_id',help='Enter region');
+parser.add_argument('--region',help='Enter region',default='us-west-2');
+parser.add_argument('--inst_id',help='Enter region',default='');
 parser.add_argument('--tags',nargs='+',help='Enter region');
 parser.add_argument('action',help='show/create/remove/sart/stop');
 args = parser.parse_args()
 #    global access_key
 #    global secret_key
-global region
 #    access_key = args.access_key
 #    secret_key = args.secret_key
-region = args.region
 #for region in regions: get_ec2_instances('us-west-2')
 #if args.action == 'show':
 #  print "Show all instances in region: %s" % (region)
-#get_ec2_instances(region,args.action,inst_id)
 print args
-print args.tags[0]
-print map(lambda x: 'tags:'+x, args.tags)
-b={}
-for i in range(0, len(args.tags), 2):
-        b[args.tags[i]] = args.tags[i+1]
-print b
+get_ec2_instances(args.region,args.action,inst_id,args.tags)
+#print map(lambda x: 'tags:'+x, args.tags)
