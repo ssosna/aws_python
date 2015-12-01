@@ -9,7 +9,7 @@ from datetime import datetime
 import time
 import sys
 resource_tags ={}
-#inst_id = ''
+inst_id = ''
 aws_access_key = config['aws_access_key']
 aws_secret_key = config['aws_secret_key']
 
@@ -42,13 +42,14 @@ def get_resource_tags(resource_id,ec2_conn):
 
 def get_ec2_instances(region,operation,inst_id,arg_tags):
     i=0
+    filter_tags={}
     tags=': Tags'+ansi_color.yellow+' =>'+ansi_color.reset
     ec2_conn = boto.ec2.connect_to_region(region,
                 aws_access_key_id=aws_access_key,
                 aws_secret_access_key=aws_secret_key)
     
     if operation == 'show':
-      instance_list = ec2_conn.get_only_instances()
+      instance_list = ec2_conn.get_only_instances(filters=filter_tags)
       for inst in instance_list:
           for k,v in inst.tags.items():
               tags+=' '+k+': '+v       
@@ -71,7 +72,7 @@ def get_ec2_instances(region,operation,inst_id,arg_tags):
 
     if operation == 'tag-search':
       #filter_tags={"tag:AppVer":"1.2.2.2.5","tag:Name":"LAMP"}
-      filter_tags={}
+      
       for i in range(len(arg_tags)):
         tmp=arg_tags[i].split('=')
         filter_tags['tag:'+tmp[0]] = tmp[1]
@@ -106,9 +107,11 @@ regions = ['us-east-1','us-west-1','us-west-2','eu-west-1','sa-east-1',
 parser = argparse.ArgumentParser()
 #    parser.add_argument('access_key', help='Access Key');
 #    parser.add_argument('secret_key', help='Secret Key');
-parser.add_argument('--region',help='Enter region',default='us-west-2');
-parser.add_argument('--inst_id',help='Enter region',default='');
-parser.add_argument('--tags',nargs='+',help='Enter region');
+parser.add_argument('--region',help='Region',default='us-west-2');
+parser.add_argument('--inst_id',help='INSTANCE ID or leave empty for search ALL instances in the region',default='');
+parser.add_argument('--elb',help='ELB ID or leave empty for search ALL ELB in the region',default='');
+parser.add_argument('--vol',help='VOL ID or leave empty for search ALL volumes in the region',default='');
+parser.add_argument('--tags',nargs='+',help='search TAGs');
 parser.add_argument('action',help='show/create/remove/sart/stop');
 args = parser.parse_args()
 #    global access_key
