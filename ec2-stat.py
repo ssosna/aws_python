@@ -1,17 +1,12 @@
 #!/usr/bin/env python
 
-#import pprint
 import argparse
 import boto.ec2
 import boto.ec2.elb
-from config import config
-from datetime import datetime
-import time
 import sys
+
 resource_tags ={}
 inst_id = ''
-aws_access_key = config['aws_access_key']
-aws_secret_key = config['aws_secret_key']
 
 class ansi_color:
   red    = '\033[31m'
@@ -40,45 +35,23 @@ def get_resource_tags(resource_id,ec2_conn):
         resource_tags[tag.name] = tag.value
   return resource_tags
 
-def get_ec2_instances(region,operation,inst_id,arg_tags):
+def get_ec2_instances(ec2_conn,operation,inst_id):
     i=0
-    filter_tags={}
-    tags=': Tags'+ansi_color.yellow+' =>'+ansi_color.reset
-    ec2_conn = boto.ec2.connect_to_region(region,
-                aws_access_key_id=aws_access_key,
-                aws_secret_access_key=aws_secret_key)
-    
-    if operation == 'show':
-      instance_list = ec2_conn.get_only_instances(filters=filter_tags)
-      for inst in instance_list:
-          for k,v in inst.tags.items():
-              tags+=' '+k+': '+v       
-          if inst.state == 'running':
-              stat=ansi_color.yellow+' => '+inst.state+ansi_color.reset
-          else:
-              stat=ansi_color.red+' => '+inst.state+ansi_color.reset
-          i+=1  
-          print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
-
-    if operation == 'run':
-      instance = ec2_conn.get_only_instances(instance_ids=inst_id)
+    tags=ansi_color.yellow+': Tags =>'
+    if operation == 'start':
+      instances = ec2_conn.get_only_instances(instance_ids=inst_id)
       print 'Starting instance id= %s ' % inst_id
-      instance[0].start()
+      instances[0].start()
 
     if operation == 'stop':
-      instance = ec2_conn.get_only_instances(instance_ids=inst_id)
-      print 'Stop instance id= %s ' % inst_id
-      instance[0].stop()
+      instances = ec2_conn.get_only_instances(instance_ids=inst_id)
+      print 'Stoping instance id= %s ' % inst_id
+      instances[0].stop()
 
-    if operation == 'tag-search':
-      #filter_tags={"tag:AppVer":"1.2.2.2.5","tag:Name":"LAMP"}
-      
-      for i in range(len(arg_tags)):
-        tmp=arg_tags[i].split('=')
-        filter_tags['tag:'+tmp[0]] = tmp[1]
-      instance_list = ec2_conn.get_only_instances(filters=filter_tags)
-      print 'Found instance with tag=', filter_tags
-      for inst in instance_list:
+    if operation == 'list':
+      instances = ec2_conn.get_only_instances(filters=filter_tags)
+#      print 'Found instance with tag=', filter_tags
+      for inst in instances:
           for k,v in inst.tags.items():
               tags+=' '+k+': '+v       
           if inst.state == 'running':
@@ -86,10 +59,36 @@ def get_ec2_instances(region,operation,inst_id,arg_tags):
           else:
               stat=ansi_color.red+' => '+inst.state+ansi_color.reset
           i+=1  
-          print str(i)+' '+ansi_color.grey+region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags
+          print str(i)+') '+ansi_color.grey+args.region+': '+ansi_color.green+inst.id+'('+inst.instance_type+')'+stat+tags+ansi_color.reset
           
-    for vol in ec2_conn.get_all_volumes():
-        print region+':',vol.id
+def get_ec2_volumes(ec2_conn,vol_id):
+    i=0
+    vol_tags=ansi_color.yellow+': Tags =>'
+    for vol in ec2_conn.get_all_volumes(filters=filter_tags):
+      for k,v in vol.tags.items():
+        vol_tags+=' '+k+': '+v       
+      i+=1
+      print str(i)+') '+args.region+':',vol.id,vol_tags+ansi_color.reset
+ 
+def get_ec2_ami(ec2_conn,ami_id):
+    i=0
+    vol_tags=ansi_color.yellow+': Tags =>'
+    for vol in ec2_conn.get_all_images(filters=filter_tags):
+      for k,v in vol.tags.items():
+        vol_tags+=' '+k+': '+v       
+      i+=1
+      print str(i)+') '+args.region+':',vol.id,vol_tags+ansi_color.reset
+ 
+ 
+def get_ec2_elb(ec2_elb_conn,elb_id):
+    i=0
+    elb_tags=ansi_color.yellow+': Tags =>'
+    for vol in ec2_elb_conn.get_all_load_balancers(load_balancer_names=filter_tags):
+      for k,v in vol.tags.items():
+        elb_tags+=' '+k+': '+v       
+      i+=1
+      print str(i)+') '+args.region+':',vol.id,elb_tags+ansi_color.reset 
+ 
  #       tags_volume = get_resource_tags(vol.id,ec2_conn)
  #       description = 'snapshot' 
  #       try:
@@ -100,27 +99,49 @@ def get_ec2_instances(region,operation,inst_id,arg_tags):
  #       except Exception, e:
  #           print "Unexpected error:", sys.exc_info()[0]
  #           pass
-          
+#------Main entry point----------          
 regions = ['us-east-1','us-west-1','us-west-2','eu-west-1','sa-east-1',
                 'ap-southeast-1','ap-southeast-2','ap-northeast-1']
-
+filter_tags={}
 parser = argparse.ArgumentParser()
 #    parser.add_argument('access_key', help='Access Key');
 #    parser.add_argument('secret_key', help='Secret Key');
-parser.add_argument('--region',help='Region',default='us-west-2');
-parser.add_argument('--inst_id',help='INSTANCE ID or leave empty for search ALL instances in the region',default='');
-parser.add_argument('--elb',help='ELB ID or leave empty for search ALL ELB in the region',default='');
-parser.add_argument('--vol',help='VOL ID or leave empty for search ALL volumes in the region',default='');
-parser.add_argument('--tags',nargs='+',help='search TAGs');
+parser.add_argument('-r',help='Region',dest='region',default='us-west-2');
+parser.add_argument('-i',help='INSTANCE ID or leave empty for search ALL instances in the region',dest='inst_id',default='',nargs='*');
+parser.add_argument('-a',help='AMI ID or leave empty for search ALL AMI in the region',dest='ami_id',default='',nargs='*');
+parser.add_argument('-e',help='ELB ID or leave empty for search ALL ELB in the region',dest='elb_id',default='',nargs='*');
+parser.add_argument('-v',help='VOL ID or leave empty for search ALL volumes in the region',dest='vol_id',default='',nargs='*');
+parser.add_argument('-t',nargs='+',help='search TAGs',dest='tags',default=None);
 parser.add_argument('action',help='show/create/remove/sart/stop');
 args = parser.parse_args()
 #    global access_key
 #    global secret_key
 #    access_key = args.access_key
 #    secret_key = args.secret_key
-#for region in regions: get_ec2_instances('us-west-2')
-#if args.action == 'show':
-#  print "Show all instances in region: %s" % (region)
-print args
-get_ec2_instances(args.region,args.action,inst_id,args.tags)
-#print map(lambda x: 'tags:'+x, args.tags)
+
+#print args
+#print sys.argv
+
+if '-r' in sys.argv:
+#  ec2_conn = boto.ec2.connect_to_region(args.region,aws_access_key_id=aws_access_key,aws_secret_access_key=aws_secret_key)
+  ec2_conn = boto.ec2.connect_to_region(args.region)
+# Pars tags if set
+if args.tags != None:
+  for i in range(len(args.tags)):
+    tmp=args.tags[i].split('=')
+    filter_tags['tag:'+tmp[0]] = tmp[1]
+# Case action
+if args.action == "list":
+  if '-i' in sys.argv:
+    print "--------------------------INSTANCE-------------------------"
+    get_ec2_instances(ec2_conn,args.action,args.inst_id)
+  if '-v' in sys.argv:
+    print "--------------------------VOLUME---------------------------"
+    get_ec2_volumes(ec2_conn,args.vol_id)
+  if '-a' in sys.argv:
+    print "--------------------------AMI------------------------------"
+    get_ec2_ami(ec2_conn,args.ami_id)
+  if '-e' in sys.argv:
+    print "--------------------------ELB-------------------------------"
+    ec2_elb_conn=boto.ec2.elb.connect_to_region(args.region)
+    get_ec2_elb(ec2_elb_conn,args.elb_id)
