@@ -5,36 +5,59 @@ import boto.ec2
 import boto.ec2.elb
 from tabulate import tabulate
 
+class get_connection:
+
+    def conn(self, args):
+        global filter_tags
+        filter_tags = {}
+        global ec2_conn
+        ec2_conn = None
+        if args.resource == ['elb']:
+            ec2_conn = boto.ec2.elb.connect_to_region(args.region)
+        else:
+            ec2_conn = boto.ec2.connect_to_region(args.region)
+        return ec2_conn
+
+    def tags_parser(self,args):
+        # Parsing tags
+        for arg_teg_part in range(len(args.tags)):
+            tmp = args.tags[arg_teg_part].split('=')
+            filter_tags['tag:' + tmp[0]] = tmp[1]
+        return filter_tags
+
+
+
 
 def get_resource(args):
-    filter_tags = {}
+   tmp=get_connection()
+   rr=tmp.conn(args)
+   ds=functions_dict.get(''.join(args.resource))
+   ds='rr.'+ds+'(filters=tmp.tags_parser(args), instance_ids=args.id)'
+   print ds
+   #pr=eval(ds)
+   print_result_tabulate(eval(ds),"true")
+   #print rr.functions_dict['instance'](filters=tmp.tags_parser(args), instance_ids=args.id)
+   #print_result_tabulate(rr.get_only_instances(filters=tmp.tags_parser(args), instance_ids=args.id), "true")
 
-    # Pars tags
-    for arg_teg_part in range(len(args.tags)):
-        tmp = args.tags[arg_teg_part].split('=')
-        filter_tags['tag:' + tmp[0]] = tmp[1]
-    if args.resource == ['elb']:
-        ec2_conn = boto.ec2.elb.connect_to_region(args.region)
-    else:
-        ec2_conn = boto.ec2.connect_to_region(args.region)
-    functions_dict[''.join(args.resource)](ec2_conn, filter_tags, args.id)
+
+    #functions_dict[''.join(args.resource)](ec2_conn, filter_tags, args.id)
+ #  ds=functions_dict['instance']
+ #  ds='tmp.'+ds+'(tmp,tmp.tags_parser(args),args.id)'
+  # print ds
+  # print_result_tabulate(tmp.get_only_instances(filters=tmp.tags_parser(args), instance_ids=args.id), "true")
+   #resss=eval(ds)
+   #print_result_tabulate(resss,"true")
 
 
 def ami(ec2_conn, filter_tags, id=None):
     print_result_tabulate(ec2_conn.get_all_images(filters=filter_tags, image_ids=id), "false")
 
-
 def instance(ec2_conn, filter_tags, id=None):
     print_result_tabulate(ec2_conn.get_only_instances(filters=filter_tags, instance_ids=id), "true")
-
-
 def volume(ec2_conn, filter_tags, id=None):
     print_result_tabulate(ec2_conn.get_all_volumes(filters=filter_tags, volume_ids=id), "false")
-
-
 def elb(ec2_conn, filter_tags, id=None):
     print_result_tabulate(ec2_conn.get_all_load_balancers(load_balancer_names=id), "false")
-
 
 def print_result_tabulate(resource, inst_flag):
 
@@ -62,7 +85,7 @@ def print_result_tabulate(resource, inst_flag):
 # ------Main entry point----------
 if __name__ == "__main__":
     functions_dict = {
-        'instance': instance,
+        'instance': 'get_only_instances',
         'ami': ami,
         'volume': volume,
         'elb': elb
