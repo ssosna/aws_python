@@ -86,9 +86,9 @@ def print_result_tabulate(resource, inst_flag):
 if __name__ == "__main__":
     functions_dict = {
         'instance': 'get_only_instances',
-        'ami': ami,
-        'volume': volume,
-        'elb': elb
+        'ami': 'get_all_images',
+        'volume': 'get_all_volumes',
+        'elb': 'get_all_load_balancers'
     }
     common = argparse.ArgumentParser()
     common.add_argument('-r', '--region', help='AWS region, default: us-west-2', default='us-west-2', required=True)
