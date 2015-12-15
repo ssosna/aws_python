@@ -5,9 +5,9 @@ import boto.ec2
 import boto.ec2.elb
 from tabulate import tabulate
 
-class get_connection:
 
-    def conn(self, args):
+class ec2_class:
+    def connect(self, args):
         global filter_tags
         filter_tags = {}
         global ec2_conn
@@ -18,7 +18,7 @@ class get_connection:
             ec2_conn = boto.ec2.connect_to_region(args.region)
         return ec2_conn
 
-    def tags_parser(self,args):
+    def tags_parser(self, args):
         # Parsing tags
         for arg_teg_part in range(len(args.tags)):
             tmp = args.tags[arg_teg_part].split('=')
@@ -26,67 +26,46 @@ class get_connection:
         return filter_tags
 
 
+def get_resource(cl_args):
+    ec2 = ec2_class()
+    ec2_resource = ec2.connect(cl_args)
+    res_name_to_str=''.join(cl_args.resource)
+    if res_name_to_str == 'elb':
+        resource_query = 'ec2.connect(args).{0}(load_balancer_names={1})'. \
+            format(functions_dict.get(res_name_to_str), cl_args.id)
+    else:
+        resource_query = 'ec2.connect(args).{0}(filters={1}, {2}_ids={3})'. \
+            format(functions_dict.get(res_name_to_str), ec2.tags_parser(cl_args), res_name_to_str, cl_args.id)
+    print_result_tabulate(eval(resource_query), res_name_to_str)
 
 
-def get_resource(args):
-   tmp=get_connection()
-   rr=tmp.conn(args)
-   ds=functions_dict.get(''.join(args.resource))
-   ds='rr.'+ds+'(filters=tmp.tags_parser(args), instance_ids=args.id)'
-   print ds
-   #pr=eval(ds)
-   print_result_tabulate(eval(ds),"true")
-   #print rr.functions_dict['instance'](filters=tmp.tags_parser(args), instance_ids=args.id)
-   #print_result_tabulate(rr.get_only_instances(filters=tmp.tags_parser(args), instance_ids=args.id), "true")
-
-
-    #functions_dict[''.join(args.resource)](ec2_conn, filter_tags, args.id)
- #  ds=functions_dict['instance']
- #  ds='tmp.'+ds+'(tmp,tmp.tags_parser(args),args.id)'
-  # print ds
-  # print_result_tabulate(tmp.get_only_instances(filters=tmp.tags_parser(args), instance_ids=args.id), "true")
-   #resss=eval(ds)
-   #print_result_tabulate(resss,"true")
-
-
-def ami(ec2_conn, filter_tags, id=None):
-    print_result_tabulate(ec2_conn.get_all_images(filters=filter_tags, image_ids=id), "false")
-
-def instance(ec2_conn, filter_tags, id=None):
-    print_result_tabulate(ec2_conn.get_only_instances(filters=filter_tags, instance_ids=id), "true")
-def volume(ec2_conn, filter_tags, id=None):
-    print_result_tabulate(ec2_conn.get_all_volumes(filters=filter_tags, volume_ids=id), "false")
-def elb(ec2_conn, filter_tags, id=None):
-    print_result_tabulate(ec2_conn.get_all_load_balancers(load_balancer_names=id), "false")
-
-def print_result_tabulate(resource, inst_flag):
-
-    header_eval_var = [['No', 'str(i)'],
-                       ['Resource ID', 'res.id'],
-                       ['State', 'res.state'],
-                       ['TAGS', 'res_tags']]
+def print_result_tabulate(resource_data, resource_name):
+    headers_list = [['No', 'str(i)'],
+                    ['Resource ID', 'res.id'],
+                    ['State', 'res.state'],
+                    ['TAGS', 'res_tags']]
     output_table = []
     res_tags = ''
     i = 0
-    if inst_flag == 'false':
-        header_eval_var.remove(['State', 'res.state'])
-    headers = zip(*header_eval_var)[0]
-    for res in resource:
+    if resource_name != 'instance':
+        headers_list.remove(['State', 'res.state'])
+    table_headers = zip(*headers_list)[0]
+    for res in resource_data:
         val = []
         i += 1
         for key, value in res.tags.items():
             res_tags += ' {0}: {1};'.format(key, value)
-        for v in zip(*header_eval_var)[1]:
-            val.append(eval(v))
+        for headers_list_value in zip(*headers_list)[1]:
+            val.append(eval(headers_list_value))
         output_table.append(val)
-    print tabulate(output_table, headers, tablefmt="grid")
+    print tabulate(output_table, table_headers, tablefmt="grid")
 
 
 # ------Main entry point----------
 if __name__ == "__main__":
     functions_dict = {
         'instance': 'get_only_instances',
-        'ami': 'get_all_images',
+        'image': 'get_all_images',
         'volume': 'get_all_volumes',
         'elb': 'get_all_load_balancers'
     }
