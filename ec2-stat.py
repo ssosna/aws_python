@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 
 import argparse
-import boto.ec2
-import boto.ec2.elb
+#import boto.ec2
+#import boto.ec2.elb
 from tabulate import tabulate
-
+import boto.ec2 as ec2
+import boto.ec2.elb as elb
 
 class ec2_class:
+
     def connect(self, args):
         global filter_tags
         filter_tags = {}
         global ec2_conn
         ec2_conn = None
         if args.resource == ['elb']:
-            ec2_conn = boto.ec2.elb.connect_to_region(args.region)
+            ec2_conn = elb.connect_to_region(args.region)
         else:
-            ec2_conn = boto.ec2.connect_to_region(args.region)
+            ec2_conn = ec2.connect_to_region(args.region)
         return ec2_conn
 
     def tags_parser(self, args):
@@ -78,3 +80,10 @@ if __name__ == "__main__":
     common.set_defaults(func=get_resource)
     args = common.parse_args()
     args.func(args)
+'''
+ def __init__(self, source, region):
+    conn = self.source.elb.connect_to_region(self.region)
+eval
+return ec2.connect(args).{0}(load_balancer_names={1}
+
+'''
