@@ -1,47 +1,48 @@
 #!/usr/bin/env python
 
 import argparse
-#import boto.ec2
-#import boto.ec2.elb
-from tabulate import tabulate
 import boto.ec2 as ec2
 import boto.ec2.elb as elb
 
-class ec2_class:
+from tabulate import tabulate
 
-    def connect(self, args):
-        global filter_tags
-        filter_tags = {}
-        global ec2_conn
-        ec2_conn = None
-        if args.resource == ['elb']:
-            ec2_conn = elb.connect_to_region(args.region)
+
+class Aws_Resource:
+    def __init__(self, aws_region, aws_res_type):
+        self.filter_tags = {}
+        self.ec2_conn = None
+        if aws_res_type == ['elb']:
+            resource_type = 'elb'
         else:
-            ec2_conn = ec2.connect_to_region(args.region)
-        return ec2_conn
+            resource_type = 'ec2'
+        self.ec2_conn = eval('{0}.connect_to_region(aws_region)'.format(resource_type))
 
     def tags_parser(self, args):
         # Parsing tags
         for arg_teg_part in range(len(args.tags)):
             tmp = args.tags[arg_teg_part].split('=')
-            filter_tags['tag:' + tmp[0]] = tmp[1]
-        return filter_tags
+            self.filter_tags['tag:' + tmp[0]] = tmp[1]
+        return self.filter_tags
+
+    def get_resource_data(self, args):
+        parsed_tags = self.tags_parser(args)
+        aws_query = 'self.get_{0}(args.id,parsed_tags)'.format(''.join(args.resource))
+        return eval(aws_query)
+
+    def get_instance(self, id, filter_tags):
+        return self.ec2_conn.get_only_instances(filters=filter_tags, instance_ids=id)
+
+    def get_image(self, id, filter_tags):
+        return self.ec2_conn.get_all_images(filters=filter_tags, image_ids=id)
+
+    def get_volume(self, id, filter_tags):
+        return self.ec2_conn.get_all_volumes(filters=filter_tags, volume_ids=id)
+
+    def get_elb(self, id, filter_tags):
+        return self.ec2_conn.get_all_load_balancers(load_balancer_names=id)
 
 
-def get_resource(cl_args):
-    ec2 = ec2_class()
-    ec2_resource = ec2.connect(cl_args)
-    res_name_to_str=''.join(cl_args.resource)
-    if res_name_to_str == 'elb':
-        resource_query = 'ec2.connect(args).{0}(load_balancer_names={1})'. \
-            format(functions_dict.get(res_name_to_str), cl_args.id)
-    else:
-        resource_query = 'ec2.connect(args).{0}(filters={1}, {2}_ids={3})'. \
-            format(functions_dict.get(res_name_to_str), ec2.tags_parser(cl_args), res_name_to_str, cl_args.id)
-    print_result_tabulate(eval(resource_query), res_name_to_str)
-
-
-def print_result_tabulate(resource_data, resource_name):
+def print_result_tabulate(args):
     headers_list = [['No', 'str(i)'],
                     ['Resource ID', 'res.id'],
                     ['State', 'res.state'],
@@ -49,10 +50,10 @@ def print_result_tabulate(resource_data, resource_name):
     output_table = []
     res_tags = ''
     i = 0
-    if resource_name != 'instance':
+    if args.resource != ['instance']:
         headers_list.remove(['State', 'res.state'])
     table_headers = zip(*headers_list)[0]
-    for res in resource_data:
+    for res in Aws_Resource(args.region, args.resource).get_resource_data(args):
         val = []
         i += 1
         for key, value in res.tags.items():
@@ -65,25 +66,13 @@ def print_result_tabulate(resource_data, resource_name):
 
 # ------Main entry point----------
 if __name__ == "__main__":
-    functions_dict = {
-        'instance': 'get_only_instances',
-        'image': 'get_all_images',
-        'volume': 'get_all_volumes',
-        'elb': 'get_all_load_balancers'
-    }
+    resource_list = ['instance', 'image', 'volume', 'elb']
     common = argparse.ArgumentParser()
     common.add_argument('-r', '--region', help='AWS region, default: us-west-2', default='us-west-2', required=True)
     common.add_argument('-t', '--tags', nargs='+', help='Search TAGs, required parameter', default=None, required=True)
-    common.add_argument('-s', '--resource', help='Choice resource, required parameter', choices=functions_dict.keys(),
+    common.add_argument('-s', '--resource', help='Choice resource, required parameter', choices=resource_list,
                         nargs=1, required=True)
     common.add_argument('-i', '--id', help='Resource ID or NAME, optional', default=None, nargs='+')
-    common.set_defaults(func=get_resource)
+    common.set_defaults(func=print_result_tabulate)
     args = common.parse_args()
     args.func(args)
-'''
- def __init__(self, source, region):
-    conn = self.source.elb.connect_to_region(self.region)
-eval
-return ec2.connect(args).{0}(load_balancer_names={1}
-
-'''
