@@ -76,11 +76,13 @@ if __name__ == "__main__":
         for second_source_type_key in SOURCE_TO_TYPE[main_source_type_key].keys():
             RESOURSE_LIST.append(second_source_type_key)
 
-    def searchNestedKey(outerdict, key):
-        for nesteddict in outerdict.itervalues():
-            print nesteddict
-            if key in nesteddict:
-                return nesteddict[key]
+    def searchNestedKey(outerdict, key_inst):
+        for nesteddict in outerdict.keys():
+            for ns in outerdict[nesteddict].keys():
+                if key_inst in ns:
+                    resultat= key_inst
+                    print resultat
+        return resultat
 
     print searchNestedKey(SOURCE_TO_TYPE,'instance')
     common = argparse.ArgumentParser()
