@@ -17,10 +17,10 @@ SOURCE_TO_TYPE = {
 }
 
 PRINT_TABLE_HEADERS_LIST = [
-    ['No', 'str(i)'],
+    ['No', 'str(index)'],
     ['Resource ID', 'res.id'],
-    ['State', 'res.state'],
-    ['TAGS', 'res_tags']
+    ['TAGS', 'res_tags'],
+    ['State', 'getattr(res,\'state\',\'-none-\')']
 ]
 
 class awsResource:
@@ -41,25 +41,23 @@ class awsResource:
         aws_query = 'self.ec2_connect.{0}'.format(self.aws_resource_type[1])
         return eval(aws_query)
 
-
 def print_result_tabulate(args):
     output_table = []
     res_tags = ''
-    i = 0
-    if args.resource != ['instance']:
-        headers_list.remove(['State', 'res.state'])
-    table_headers = zip(*headers_list)[0]
-    for res in awsResource(args.region, SourceTypeDictProcessing(SOURCE_TO_TYPE,args.resource)).get_resource_data(args.id,args.resource):
-        val = []
-        i += 1
-        for key, value in res.tags.items():
-            res_tags += ' {0}: {1};'.format(key, value)
-        for headers_list_value in zip(*headers_list)[1]:
-            val.append(eval(headers_list_value))
-        output_table.append(val)
+    index = 0
+    table_headers = zip(*PRINT_TABLE_HEADERS_LIST)[0]
+    for res in awsResource(args.region, sourceTypeDictProcessing(SOURCE_TO_TYPE,args.resource)).get_resource_data(args.id,args.resource):
+        table_string = []
+        index += 1
+        for tags_key, tags_value in res.tags.items():
+            res_tags += ' {0}: {1};'.format(tags_key, tags_value)
+        for headers_list_value in zip(*PRINT_TABLE_HEADERS_LIST)[1]:
+                table_string.append(eval(headers_list_value))
+        output_table.append(table_string)
     print tabulate(output_table, table_headers, tablefmt="grid")
 
-def SourceTypeDictProcessing(outerdict, resource_type):
+
+def sourceTypeDictProcessing(outerdict, resource_type):
         processing_result_data=[]
         for nesteddict in outerdict.keys():
             for nestedpair in outerdict[nesteddict].keys():
@@ -72,15 +70,12 @@ def SourceTypeDictProcessing(outerdict, resource_type):
 
 # ------Main entry point----------
 if __name__ == "__main__":
-    print SourceTypeDictProcessing(SOURCE_TO_TYPE,'instance')
-    print SourceTypeDictProcessing(SOURCE_TO_TYPE,None)
     common = argparse.ArgumentParser()
     common.add_argument('-r', '--region', help='AWS region, default: us-west-2', default='us-west-2', required=True)
     common.add_argument('-t', '--tags', nargs='+', help='Search TAGs, required parameter', default=None, required=True)
-    common.add_argument('-s', '--resource', help='Choice resource, required parameter', choices=SourceTypeDictProcessing(SOURCE_TO_TYPE,None),
+    common.add_argument('-s', '--resource', help='Choice resource, required parameter', choices=sourceTypeDictProcessing(SOURCE_TO_TYPE,None),
                         required=True)
     common.add_argument('-i', '--id', help='Resource ID or NAME, optional', default=None, nargs='+')
     common.set_defaults(func=print_result_tabulate)
     args = common.parse_args()
-    print args
     args.func(args)
