@@ -19,13 +19,6 @@ SOURCE_TO_TYPE = {
         'elb': 'get_all_load_balancers(load_balancer_names=aws_id)'}
 }
 
-# Table headers and data variables
-PRINT_TABLE_HEADERS_LIST = [
-    ['No', 'str(index)'],
-    ['Resource ID', 'res.id'],
-    ['TAGS', 'res_tags'],
-    ['State', 'getattr(res,\'state\',\'-none-\')']
-]
 
 TYPE_TO_SOURCE = {
     type: type_to_source(source=source, function=function)
@@ -44,29 +37,38 @@ class awsResource:
         # Parsing tags which received from command line
         aws_tags = ['tag:{}'.format(item) for item in aws_tags]
         filter_tags = [
-            item.split('=')
-            for item in aws_tags
-            ]
+                        item.split('=')
+                        for item in aws_tags
+                      ]
         return dict(filter_tags)
 
     def get_resource_data(self, aws_id, aws_resource, aws_tags):
+        # Table headers and data variables
+        PRINT_TABLE_HEADERS_LIST = [
+                                ['No', 'str(index)'],
+                                ['Resource ID', 'getattr(res,\'id\',\'-none-\')'],
+                                ['Name','getattr(res,\'name\',\'-none-\')'],
+                                ['TAGS', 'res_tags'],
+                                ['vpc_id','getattr(res,\'vpc_id\',\'-none-\')'],
+                                ['subnet_id','getattr(res,\'subnet_id\',\'-none-\')'],
+                                ['State', 'getattr(res,\'state\',\'-none-\')']
+                                ]
         # Function gets data from AWS according to the query
         # Output: list of resources data
+        table_headers = zip(*PRINT_TABLE_HEADERS_LIST)[0]
         output_data_table = list()
-        res_tags = str()
         filter_tags = self.tags_parser(aws_tags)
         resource_data = eval('self.ec2_connect.{0}'.format(aws_resource))
         for index, res in enumerate(resource_data):
+            res_tags = str()
             table_string = []
-            print res.tags.items()
-            for tags_key, tags_value in res.tags.items():
-
-                res_tags += ' {}: {};'.format(tags_key, tags_value)
+            if hasattr(res,'tags'):
+                for tags_key, tags_value in res.tags.items():
+                    res_tags += ' {}: {};'.format(tags_key, tags_value)
             for headers_list_value in zip(*PRINT_TABLE_HEADERS_LIST)[1]:
                 table_string.append(eval(headers_list_value))
             output_data_table.append(table_string)
-        print output_data_table
-        return output_data_table
+        return (table_headers, output_data_table)
 
 
 def print_result_tabulate(args):
@@ -85,8 +87,7 @@ def print_result_tabulate(args):
             |    1 | i-31d610e8    | AppVer: 1.2.2.2.5; Name: LAMP; | stopped |
             +------+---------------+--------------------------------+---------+
     """
-    table_headers = zip(*PRINT_TABLE_HEADERS_LIST)[0]
-    output_table = awsResource(args.region, TYPE_TO_SOURCE[args.resource].source). \
+    table_headers, output_table = awsResource(args.region, TYPE_TO_SOURCE[args.resource].source). \
         get_resource_data(args.id, TYPE_TO_SOURCE[args.resource].function, args.tags)
     print tabulate(output_table, table_headers, tablefmt="grid")
 
@@ -95,7 +96,7 @@ def print_result_tabulate(args):
 if __name__ == "__main__":
     common = argparse.ArgumentParser()
     common.add_argument('-r', '--region', help='AWS region, default: us-west-2', default='us-west-2', required=True)
-    common.add_argument('-t', '--tags', nargs='+', help="Search TAGs, required parameter", default=None, required=True)
+    common.add_argument('-t', '--tags',help="Search TAGs, required parameter", default='')
     common.add_argument('-s', '--resource', help='Choice resource, required parameter',
                         choices=TYPE_TO_SOURCE.keys(), required=True)
     common.add_argument('-i', '--id', help='Resource ID or NAME, optional', default=None, nargs='+')
